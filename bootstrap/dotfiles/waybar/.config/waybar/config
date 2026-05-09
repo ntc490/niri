@@ -1,0 +1,64 @@
+{
+    "layer": "top",
+    "position": "top",
+    "height": 28,
+    "spacing": 6,
+    "margin-top": 0,
+    "margin-bottom": 0,
+
+    "modules-left":   ["niri/workspaces"],
+    "modules-center": ["clock"],
+    "modules-right":  ["custom/fcitx5", "network", "pulseaudio", "battery"],
+
+    "custom/fcitx5": {
+        "exec": "/home/ncrapo/.config/waybar/scripts/fcitx5-status.sh",
+        "interval": 1,
+        "tooltip": false,
+        "on-click": "fcitx5-remote -t"
+    },
+
+
+    "niri/workspaces": {
+        "format": "{icon}",
+        "format-icons": {
+            "default": "•",
+            "active":  "●"
+        }
+    },
+
+    "clock": {
+        "locale": "ja_JP.utf8",
+        "format": "{:L%m月%d日(%a) %H:%M}",
+        "tooltip-format": "<tt>{calendar}</tt>"
+    },
+
+    "network": {
+        "format-wifi":         "",
+        "format-ethernet":     "",
+        "format-disconnected": "",
+        "tooltip-format-wifi": "{essid}  ·  {signalStrength}%  ·  {ipaddr}",
+        "tooltip-format-ethernet": "{ifname}  ·  {ipaddr}",
+        "tooltip-format-disconnected": "disconnected",
+        "on-click":            "nm-connection-editor"
+    },
+
+    "pulseaudio": {
+        "format":          "  {volume}%",
+        "format-muted":    "  muted",
+        "format-bluetooth":"  {volume}%",
+        "on-click":        "pavucontrol",
+        "scroll-step":     2
+    },
+
+    "battery": {
+        "format":          "{icon}",
+        "format-charging": " {icon}",
+        "format-plugged":  " {icon}",
+        "format-icons":    ["", "", "", "", ""],
+        "tooltip-format":  "{capacity}%  ·  {time}",
+        "states": {
+            "warning":  20,
+            "critical": 10
+        }
+    }
+}

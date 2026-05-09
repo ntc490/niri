@@ -1,0 +1,20 @@
+# Minimal dark notification styling, matched to the rest of the setup.
+
+font=Noto Sans 11
+background-color=#14161eee
+text-color=#c8ccd4
+border-color=#3d4a5c
+border-size=1
+border-radius=8
+
+padding=12
+margin=10
+default-timeout=5000
+max-visible=5
+
+anchor=top-right
+layer=overlay
+
+[urgency=critical]
+border-color=#ea6962
+default-timeout=0

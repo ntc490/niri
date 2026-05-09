@@ -1,0 +1,53 @@
+# Background image is supplied per-launch by ~/.config/niri/scripts/lock.sh.
+# Fall-back color in case no image is provided.
+color=14161e
+scaling=fill
+
+show-failed-attempts
+ignore-empty-password
+
+# Indicator (the ring around the typing target). Always visible, even idle.
+indicator-radius=140
+indicator-thickness=5
+indicator-idle-visible
+
+# Semi-transparent dark fill inside the ring so clock + name read
+# clearly even on a bright wallpaper.
+inside-color=14161ed0
+inside-clear-color=14161ed0
+inside-ver-color=14161ed0
+inside-wrong-color=14161ed0
+
+# Ring colors per state (typing, verifying, wrong).
+ring-color=2a2d33
+ring-clear-color=8aa8c8
+ring-ver-color=8aa8c8
+ring-wrong-color=ea6962
+
+# Text inside the ring (clock / status).
+text-color=e8eaf0
+text-clear-color=e8eaf0
+text-ver-color=e8eaf0
+text-wrong-color=e8eaf0
+
+# Per-keystroke ring highlight + backspace highlight.
+key-hl-color=8aa8c8
+bs-hl-color=ea6962
+
+separator-color=00000000
+
+# Single family with full Latin + Japanese coverage.
+font=Noto Sans CJK JP
+font-size=24
+
+# Clock + single-line date/contact (provided by swaylock-effects).
+# Full-width spaces (　) act as visual separators between fields.
+clock
+timestr=%H:%M
+datestr=%m月%d日(%a)　Nathan Crapo　801-953-6938
+
+# Soften the wallpaper so text/indicator stays legible. Tweak to taste:
+#   effect-blur=RxN     — blur radius R, applied N times
+#   effect-vignette=B:F — base brightness B, falloff factor F
+effect-blur=8x3
+effect-vignette=0.5:0.5
