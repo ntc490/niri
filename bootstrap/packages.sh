@@ -8,7 +8,7 @@ OFFICIAL=(
     # niri + wayland session
     niri
     waybar
-    swayidle
+    hypridle
     xdg-desktop-portal-gtk
     xdg-desktop-portal-gnome
     wl-clipboard
@@ -50,6 +50,9 @@ OFFICIAL=(
     kwallet-pam
     libsecret
     networkmanager
+
+    # power management (ThinkPad-aware; sets charge thresholds + runtime PM)
+    tlp
 )
 
 echo "==> Installing official packages with pacman"

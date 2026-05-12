@@ -208,26 +208,93 @@ block.
 
 ## 9. Idle / suspend behavior
 
-This took two iterations. Final design:
+**Final design (2026-05-09):** `hypridle` (Hyprland's idle daemon)
+owns the idle sequence and integrates with hyprlock via systemd
+session-lock. Config: `~/.config/hypr/hypridle.conf`. niri spawns
+it with a bare `spawn-at-startup "hypridle"`.
 
-- **swayidle** (started from niri) only handles **lock** and
-  **before-sleep lock**. It also publishes `idlehint 300` so logind
-  knows the session went idle.
-- **systemd-logind** owns the suspend timer.
-  Manual edit (run as root) to `/etc/systemd/logind.conf`:
-  `IdleAction=suspend`, `IdleActionSec=30min`. To pick up changes
-  use **`sudo systemctl reload systemd-logind`** (SIGHUP, re-reads
-  config without disturbing sessions) or just reboot. **Never
-  `restart` systemd-logind on a live session** — it kills every
-  login session on the box, including the SDDM seat and your wayland
-  socket. Doing that on 2026-05-08 caused a hard-reset.
+```
+general {
+    lock_cmd          = pidof hyprlock || hyprlock
+    before_sleep_cmd  = loginctl lock-session
+    after_sleep_cmd   = niri msg action power-on-monitors
+    inhibit_sleep     = 2
+}
 
-The earlier two-timer setup (swayidle running both `lock` and a
-separate `suspend` timer) had a race where you'd land in front of an
-already-locked screen, type the password, and the kernel suspended a
-moment later because the suspend timer was still counting from the
-original idle moment. Splitting the responsibilities fixes it: unlock
-clears `IdleHint`, logind cancels the pending suspend.
+listener { timeout = 300;  on-timeout = loginctl lock-session }
+listener { timeout = 600;  on-timeout = niri msg action power-off-monitors
+                           on-resume  = niri msg action power-on-monitors }
+listener { timeout = 1800; on-timeout = systemctl suspend }
+```
+
+- 5 min  → `loginctl lock-session` → DBus Lock signal → hypridle's
+  `lock_cmd` runs `pidof hyprlock || hyprlock`. Single instance by
+  construction.
+- 10 min → DPMS off via `niri msg action power-off-monitors`;
+  restored on first wayland activity via the `on-resume` clause.
+- 30 min → `systemctl suspend`. `before_sleep_cmd` fires the same
+  DBus Lock; `inhibit_sleep = 2` makes hypridle hold the sleep
+  inhibitor until the screen is actually locked, so there's no
+  race between suspend and lock.
+- Manual `Super+Alt+L` calls `lock.sh`, which is now a one-line
+  shim (`exec loginctl lock-session`) that goes through the same
+  DBus path.
+
+**What didn't work, and why (history kept for context):**
+
+1. *Two-timer swayidle (initial 2026-05-08):* swayidle ran both
+   `timeout 300 lock` and `timeout 1800 suspend`. Race: walk back
+   at T=29:55, start typing the password, suspend fires at T=30:00
+   mid-keystroke.
+
+2. *logind owns suspend, swayidle publishes IdleHint (2026-05-08):*
+   moved suspend to logind via `IdleAction=suspend`,
+   `IdleActionSec=30min`. Looked clean on paper — unlock would
+   clear IdleHint, logind would cancel pending suspend. But while
+   the session is locked the user's input goes to hyprlock, not
+   niri's surfaces. swayidle's idle protocol still sees the
+   session as idle, so IdleHint stays `true` indefinitely.
+   Result: logind re-suspends ~24s after every wake because
+   IdleHint never clears, and each before-sleep starts a fresh
+   hyprlock racing with the user's password attempts. Diagnosed
+   via journal showing 4 suspend cycles in ~50 minutes with only
+   one walk-away. We added a flock single-instance guard to
+   `lock.sh` to deal with the stacking, but the underlying
+   feedback loop remained.
+
+3. *swayidle owns everything (2026-05-09 afternoon):* removed
+   logind's IdleAction, gave swayidle its own `timeout 1800
+   systemctl suspend`. The race from #1 returned (theoretically
+   once per idle period instead of N times like #2) and the DPMS
+   `on-resume` didn't reliably wake the display while locked
+   because input wasn't reaching niri's surfaces.
+
+4. *hypridle (this iteration):* the canonical Hyprland-ecosystem
+   pairing for hyprlock. Solves all three problems by construction
+   — DBus session-lock dedupes triggers, `pidof` guards spawning,
+   `inhibit_sleep` removes the suspend race, and hyprlock has its
+   own input-aware DPMS handling for the locked-screen case.
+   The in-place edits to `/etc/systemd/logind.conf`
+   (`IdleAction=suspend`, `IdleActionSec=30min`) were reverted —
+   nothing publishes IdleHint anymore, so they were dead code,
+   but cleaner to remove.
+
+**Lesson:** I kept reaching for swayidle because it was the
+"sway-y" thing, then patching its rough edges. The hyprlock docs
+explicitly recommend hypridle and have a four-line example that
+gets all of this right out of the box. Should have looked there
+first.
+
+**Operational notes:**
+
+- `sudo systemctl reload systemd-logind` (SIGHUP) to pick up
+  `/etc/systemd/logind.conf` changes. **Never `restart`** — it
+  kills every login session on the box, including the SDDM seat
+  and your wayland socket. Doing that on 2026-05-08 caused a
+  hard-reset.
+- hypridle is started by niri's `spawn-at-startup` and reads its
+  config on launch. To pick up `hypridle.conf` changes:
+  `pkill hypridle; hypridle &` (or restart niri).
 
 `HandleLidSwitch=suspend` (the systemd default) was left alone — lid
 close still suspends, and `before-sleep` ensures the screen is locked

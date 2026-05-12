@@ -292,14 +292,20 @@ spawn-at-startup "/usr/lib/pam_kwallet_init"
 spawn-sh-at-startup "wl-paste --type text  --watch cliphist store"
 spawn-sh-at-startup "wl-paste --type image --watch cliphist store"
 
-// Idle: lock at 5 min, also lock before any sleep (lid close, logind idle, etc).
-// Suspending is delegated to systemd-logind (see /etc/systemd/logind.conf:
-// IdleAction=suspend, IdleActionSec=30min). swayidle just marks the session
-// idle via 'idlehint', and logind owns the suspend countdown — no two-timer
-// race conditions, and unlock cleanly cancels the pending suspend.
-// before-sleep backgrounds the lock so swayidle releases the sleep inhibitor
-// promptly; hyprlock takes the session lock atomically on launch.
-spawn-sh-at-startup "swayidle -w timeout 300 '/home/ncrapo/.config/niri/scripts/lock.sh' idlehint 300 before-sleep '/home/ncrapo/.config/niri/scripts/lock.sh &'"
+// Idle sequence is owned by hypridle (config in ~/.config/hypr/hypridle.conf):
+//   5 min  → loginctl lock-session → hyprlock (single instance)
+//  10 min  → niri msg action power-off-monitors (resumed on activity)
+//  30 min  → systemctl suspend
+//  before any sleep → loginctl lock-session, with sleep-inhibitor held
+//                     until the lock is actually in place (no race).
+//
+// hypridle is the canonical pairing for hyprlock. It uses systemd-logind's
+// session-lock DBus event so all triggers (timeout, before-sleep, manual
+// binding) funnel through one path with built-in deduplication via the
+// `pidof hyprlock || hyprlock` lock_cmd. We previously used swayidle here
+// and chased a series of bugs (stacked locks, IdleHint feedback loops with
+// logind) that this design eliminates by construction. See modifications.md §9.
+spawn-at-startup "hypridle"
 
 // To run a shell command (with variables, pipes, etc.), use spawn-sh-at-startup:
 // spawn-sh-at-startup "qs -c ~/source/qs/MyAwesomeShell"
